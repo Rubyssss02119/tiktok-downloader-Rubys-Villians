@@ -121,14 +121,8 @@ def mp3_proxy():
     # alias to download with audio mime
     return download()
 
-import os
-@app.route("/")
-def index():
-    for p in [os.path.join(os.path.dirname(__file__),"..","index.html"), os.path.join(os.path.dirname(__file__),"tiktok-downloader.html")]:
-        try:
-            return Response(open(os.path.normpath(p),encoding="utf-8").read(), mimetype="text/html")
-        except: pass
-    return jsonify({"name":"tiktok-downloader","health":"/health","api":"/api?url=..."})
+# Vercel serves / as static index.html — remove Flask "/" to avoid shadowing
+# Flask handles /health /api /download /mp3 via rewrites -> /api/index (see vercel.json)
 if __name__=="__main__":
     port=int(os.environ.get("PORT","5001"))
     print(f"tiktok yt-dlp+ssstik+proxy server http://localhost:{port}")
