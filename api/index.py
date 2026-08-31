@@ -124,9 +124,11 @@ def mp3_proxy():
 import os
 @app.route("/")
 def index():
-    try:
-        return Response(open(os.path.join(os.path.dirname(__file__),"tiktok-downloader.html"),encoding="utf-8").read(), mimetype="text/html")
-    except: return jsonify({"name":"tiktok-downloader","health":"/health","api":"/api?url=..."})
+    for p in [os.path.join(os.path.dirname(__file__),"..","index.html"), os.path.join(os.path.dirname(__file__),"tiktok-downloader.html")]:
+        try:
+            return Response(open(os.path.normpath(p),encoding="utf-8").read(), mimetype="text/html")
+        except: pass
+    return jsonify({"name":"tiktok-downloader","health":"/health","api":"/api?url=..."})
 if __name__=="__main__":
     port=int(os.environ.get("PORT","5001"))
     print(f"tiktok yt-dlp+ssstik+proxy server http://localhost:{port}")
