@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TikTok Downloader — no watermark</title>
+<style>
+*{box-sizing:border-box;font-family:Inter,system-ui,sans-serif}
+body{margin:0;min-height:100vh;background:#0a0a0f;color:#eee;display:flex;justify-content:center;padding:24px}
+.card{width:100%;max-width:640px;background:#15151d;border:1px solid #222233;border-radius:20px;padding:28px;height:fit-content}
+h1{margin:0 0 6px;font-size:22px}
+.sub{color:#8b8ba3;font-size:13px;margin-bottom:12px;line-height:1.5}
+.row{display:flex;gap:10px}
+input{flex:1;background:#0f0f17;border:1px solid #2a2a3a;color:#fff;padding:12px 14px;border-radius:12px;outline:none;font-size:14px}
+input:focus{border-color:#ff2d55}
+button{background:#ff2d55;color:#fff;border:0;padding:12px 20px;border-radius:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+button:disabled{opacity:.5}
+.pill{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid #2a2a4a;color:#8b8ba3;display:inline-block;margin-bottom:10px}
+.pill.ok{color:#7ee8a6;border-color:#1a3d2a;background:#10201a}
+.pill.bad{color:#ff9a9a;border-color:#4a1a1a;background:#261212}
+.status{margin-top:14px;padding:12px;border-radius:12px;font-size:13px;display:none;white-space:pre-wrap;word-break:break-all}
+.status.ok{display:block;background:#10201a;border:1px solid #1a3d2a;color:#7ee8a6}
+.status.err{display:block;background:#261212;border:1px solid #4a1a1a;color:#ff9a9a}
+.status.loading{display:block;background:#17182a;border:1px solid #2a2a4a;color:#aab0ff}
+.preview{margin-top:16px;display:none;gap:14px;background:#0f0f17;border:1px solid #23233a;border-radius:14px;padding:14px;flex-wrap:wrap}
+.preview.show{display:flex}
+.preview video,.preview img{width:320px;max-height:560px;border-radius:14px;background:#000;object-fit:contain;flex-shrink:0}
+@media(max-width:560px){.preview video,.preview img{width:100%;max-height:70vh}}
+.meta{flex:1;min-width:200px}
+.meta .title{font-size:13px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.meta .author{font-size:12px;color:#8b8ba3;margin:6px 0}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.actions a{font-size:12px;padding:8px 14px;border-radius:999px;text-decoration:none;font-weight:700}
+.a1{background:#ff2d55;color:#fff}.a2{background:#23233a;color:#fff}.a3{background:#23233a;color:#aab0ff}
+.hint{font-size:11px;color:#6b6b82;margin-top:10px;line-height:1.6}
+audio{width:100%;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎵 TikTok Downloader</h1>
+  <div id="backend" class="pill">cek backend...</div>
+  <div class="sub">Paste link → tanpa watermark (HD) + MP3. Lokal <code>yt-dlp</code> tanpa 403.</div>
+  <div class="row">
+    <input id="url" placeholder="https://www.tiktok.com/@user/video/...">
+    <button id="go" onclick="go()">Download</button>
+  </div>
+  <div class="hint">Jalankan <code>start.bat</code> atau <code>python server.py</code> dulu (port 5001). HTML coba <code>localhost:5001</code> dulu, fallback ke browser API.</div>
+  <div id="status" class="status"></div>
+  <div id="preview" class="preview">
+    <video id="vid" controls playsinline style="display:none"></video>
+    <img id="cover" style="display:none">
+    <div class="meta">
+      <div id="title" class="title"></div>
+      <div id="author" class="author"></div>
+      <div class="actions">
+        <a id="dl1" class="a1" target="_blank" rel="noopener">⬇ No Watermark (HD)</a>
+        <a id="dl2" class="a2" target="_blank" rel="noopener" style="display:none">⬇ Watermark</a>
+        <a id="dl3" class="a3" target="_blank" rel="noopener">🎵 MP3</a>
+      </div>
+      <audio id="aud" controls style="display:none"></audio>
+    </div>
+  </div>
+</div>
+<script>
+const $=s=>document.getElementById(s);
+const show=(m,c)=>{const e=$('status');e.className='status '+c;e.textContent=m;e.style.display='block'};
+const LOCAL='http://localhost:5001';
+
+async function check(){
+  const el=$('backend');
+  try{ const r=await fetch(LOCAL+'/health',{cache:'no-store'}); if(r.ok){ el.textContent='● lokal aktif (5001 yt-dlp)'; el.className='pill ok'; return true; } }catch(e){}
+  el.textContent='○ lokal mati — klik start.bat di E:/hermes/tiktok-downloader';
+  el.className='pill bad';
+  return false;
+}
+check(); setInterval(check,4000);
+
+async function fetchLocal(url){
+  const r=await fetch(LOCAL+'/api?url='+encodeURIComponent(url));
+  const j=await r.json();
+  if(j.status==='success') return j;
+  throw new Error(j.message+(j.details?': '+j.details.slice(0,300):''));
+}
+async function tikwm(url){
+  const r=await fetch('https://www.tikwm.com/api/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:'url='+encodeURIComponent(url)+'&count=12&cursor=0&web=1&hd=1'});
+  const t=await r.text(); if(!t||t.trim().startsWith('<')) throw new Error('tikwm 403');
+  const j=JSON.parse(t); if(j.code!==0&&j.code!==undefined) throw new Error(j.msg||JSON.stringify(j).slice(0,300));
+  const d=j.data||j; return {title:d.title||'',cover:d.cover||'',play:d.play||d.hdplay||'',hdplay:d.hdplay||d.play||'',wmplay:d.wmplay||'',music:d.music||''};
+}
+
+function prox(u, name, ext){
+  if(!u) return '';
+  const fn=(name||'tiktok').replace(/[^\w\- ]/g,'').trim().slice(0,50)||'tiktok';
+  const isMusic = ext==='mp3';
+  return LOCAL+(isMusic?'/mp3':'/download')+'?url='+encodeURIComponent(u)+'&filename='+encodeURIComponent(fn+(isMusic?'.mp3':'.mp4'));
+}
+function render(d){
+  $('title').textContent=d.title||'Video TikTok';
+  $('author').textContent=d.uploader? '@'+d.uploader : (d.author? '@'+(d.author.unique_id||d.author.nickname||''):'');
+  const hd=d.hdplay||d.play, wm=d.wmplay, music=d.music, cover=d.cover;
+  const title=d.title||'tiktok';
+  const hdProx=prox(hd,title,'mp4'), wmProx=prox(wm,title,'mp4'), musicProx=prox(music,title,'mp3');
+  $('dl1').href=hdProx||hd; $('dl1').style.display=hd?'':'none';
+  if(wm){ $('dl2').href=wmProx||wm; $('dl2').style.display=''; } else $('dl2').style.display='none';
+  if(music){ $('dl3').href=musicProx||music; $('dl3').style.display=''; } else { $('dl3').style.display='none'; }
+  $('aud').style.display='none'; $('cover').style.display='none';
+  const previewSrc=hdProx||d.play||hd;
+  if(previewSrc){ $('vid').src=previewSrc; $('vid').style.display=''; $('vid').load(); } else $('vid').style.display='none';
+  $('preview').classList.add('show');
+}
+
+async function go(){
+  const url=$('url').value.trim();
+  if(!url) return show('Paste link dulu','err');
+  if(!/tiktok\.com/i.test(url)) return show('Bukan link TikTok','err');
+  $('preview').classList.remove('show'); $('status').style.display='none';
+  const btn=$('go'); btn.disabled=true; btn.textContent='...';
+  show('Ambil video via lokal yt-dlp...','loading');
+  try{
+    let data;
+    try{ data=await fetchLocal(url); }
+    catch(e){
+      show('lokal gagal: '+e.message+'\nCoba tikwm browser...','loading');
+      data=await tikwm(url);
+    }
+    if(!data.play && !data.hdplay) throw new Error('tidak dapat link video — private/region');
+    show('Berhasil','ok');
+    render(data);
+  }catch(e){
+    show('Gagal: '+e.message+'\n\n• Pastikan server.py jalan (localhost:5001)\n• Pakai link public lengkap\n• Refresh lalu coba lagi','err');
+  }finally{ btn.disabled=false; btn.textContent='Download'; }
+}
+$('url').addEventListener('keydown',e=>{if(e.key==='Enter')go()});
+</script>
+</body>
+</html>
