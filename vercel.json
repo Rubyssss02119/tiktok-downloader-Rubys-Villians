@@ -1,14 +1,8 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "api/index.py", "use": "@vercel/python" },
-    { "src": "index.html", "use": "@vercel/static" }
-  ],
-  "routes": [
-    { "src": "/health", "dest": "api/index.py" },
-    { "src": "/api", "dest": "api/index.py" },
-    { "src": "/download", "dest": "api/index.py" },
-    { "src": "/mp3", "dest": "api/index.py" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/health", "destination": "/api/index" },
+    { "source": "/api", "destination": "/api/index" },
+    { "source": "/download", "destination": "/api/index" },
+    { "source": "/mp3", "destination": "/api/index" }
   ]
 }
